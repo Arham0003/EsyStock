@@ -1,0 +1,7 @@
+name,sku,category,quantity,purchase_price,selling_price,gst,supplier,low_stock_threshold
+Laptop Pro,LP1001,Electronics,25,80000,95000,18,Tech Distributors,5
+Wireless Mouse,WM2002,Electronics,50,500,750,18,Peripherals Inc.,10
+Office Chair,OC3003,Furniture,15,4500,6000,18,Comfort Seating,3
+Desk Lamp,DL4004,Lighting,30,1200,1800,12,Lumina Lights,8
+Notebook,NB5005,Stationery,100,50,80,12,Paper World,20
+Coffee Mug,CM6006,Kitchen,40,150,250,12,Ceramic Co.,15
