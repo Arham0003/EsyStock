@@ -275,7 +275,7 @@ export default function Products() {
               Add Product
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="sm:max-w-lg md:max-w-xl max-h-[90vh] overflow-y-auto w-[95vw]">
             <DialogHeader>
               <DialogTitle className="text-2xl">
                 {editingProduct ? 'Edit Product' : 'Add New Product'}

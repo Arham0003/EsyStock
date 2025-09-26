@@ -126,7 +126,7 @@ export default function Sales() {
         variant: "destructive",
         title: "Error fetching data",
         description: error.message.includes('customer_name') || error.message.includes('column') 
-          ? "The database needs to be updated to support customer information. Some features may be limited until the update is applied." 
+          ? "The database needs to be updated to support customer information. Please ask your administrator to apply the required database migration from the Supabase dashboard." 
           : error.message,
       });
     } finally {
@@ -299,7 +299,9 @@ export default function Sales() {
       toast({
         variant: "destructive",
         title: "Error recording sale",
-        description: error.message,
+        description: error.message.includes('customer_name') || error.message.includes('column') 
+          ? "The database needs to be updated to support customer information. Please ask your administrator to apply the required database migration from the Supabase dashboard." 
+          : error.message,
       });
     }
   };
@@ -356,7 +358,7 @@ export default function Sales() {
               Record Sale
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-3xl w-full mx-4 sm:mx-6 md:mx-8">
+          <DialogContent className="sm:max-w-lg md:max-w-xl max-h-[90vh] overflow-y-auto w-[95vw]">
             <DialogHeader>
               <DialogTitle className="text-2xl">Record New Sale</DialogTitle>
               <DialogDescription className="text-lg">
