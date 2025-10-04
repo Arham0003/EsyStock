@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -137,12 +137,6 @@ export default function Settings() {
     }
   };
 
-  // Memoize role display text
-  const roleDisplayText = useMemo(() => 
-    profile?.role === 'owner' ? 'Store Owner' : 'Worker',
-    [profile?.role]
-  );
-
   if (!isOwner) {
     return (
       <div className="text-center py-8">
@@ -273,12 +267,6 @@ export default function Settings() {
             <div>
               <Label>Email</Label>
               <p className="text-sm text-muted-foreground mt-1">{profile?.email}</p>
-            </div>
-            <div>
-              <Label>Role</Label>
-              <p className="text-sm text-muted-foreground mt-1">
-                {roleDisplayText}
-              </p>
             </div>
             <div>
               <Label>Account ID</Label>

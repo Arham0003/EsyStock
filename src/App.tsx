@@ -22,7 +22,6 @@ const LoadingComponent = () => (
 const Products = lazy(() => import("./pages/Products"));
 const Sales = lazy(() => import("./pages/Sales"));
 const Reports = lazy(() => import("./pages/Reports"));
-const Workers = lazy(() => import("./pages/Workers"));
 const Settings = lazy(() => import("./pages/Settings"));
 const Inventory = lazy(() => import("./pages/Inventory"));
 
@@ -61,14 +60,6 @@ const App = () => (
                 element={
                   <Suspense fallback={<LoadingComponent />}>
                     <Reports />
-                  </Suspense>
-                } 
-              />
-              <Route 
-                path="workers" 
-                element={
-                  <Suspense fallback={<LoadingComponent />}>
-                    <Workers />
                   </Suspense>
                 } 
               />

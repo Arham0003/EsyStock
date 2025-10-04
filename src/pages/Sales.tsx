@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
-import { Plus, ShoppingCart, Package } from 'lucide-react';
+import { Plus, ShoppingCart, Package, Eye, Search } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -35,11 +35,17 @@ interface Sale {
   };
 } // @ts-ignore - customer fields will be added by migration
 
+interface Settings {
+  gst_enabled: boolean;
+  default_gst_rate: number;
+}
+
 export default function Sales() {
   const { profile } = useAuth();
   const { toast } = useToast();
   const [products, setProducts] = useState<Product[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
+  const [settings, setSettings] = useState<Settings | null>(null);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedProducts, setSelectedProducts] = useState<Array<{id: string, quantity: number}>>([]);
@@ -53,6 +59,20 @@ export default function Sales() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalSales, setTotalSales] = useState(0);
   const itemsPerPage = 10;
+  const [productSearchTerm, setProductSearchTerm] = useState('');
+  // Sales detail modal state
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
+  const [productPrices, setProductPrices] = useState<Record<string, number>>({});
+
+  // Filter products based on search term
+  const filteredProducts = useMemo(() => {
+    if (!productSearchTerm) return products;
+    
+    return products.filter(product => 
+      product.name.toLowerCase().includes(productSearchTerm.toLowerCase())
+    );
+  }, [products, productSearchTerm]);
 
   const fetchData = async () => {
     try {
@@ -138,6 +158,51 @@ export default function Sales() {
     fetchData();
   }, [currentPage]);
 
+  // Add a separate effect to fetch settings when profile changes
+  useEffect(() => {
+    const fetchSettings = async () => {
+      if (!profile?.account_id) return;
+      
+      try {
+        const settingsRes = await supabase
+          .from('settings')
+          .select('gst_enabled, default_gst_rate')
+          .eq('account_id', profile.account_id)
+          .single();
+        
+        if (!settingsRes.error) {
+          setSettings(settingsRes.data);
+        }
+      } catch (error) {
+        console.error('Error fetching settings:', error);
+      }
+    };
+    
+    fetchSettings();
+    
+    // Subscribe to settings changes
+    const settingsSubscription = supabase
+      .channel('settings-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'settings',
+          filter: `account_id=eq.${profile?.account_id}`
+        },
+        (payload) => {
+          setSettings(payload.new as Settings);
+        }
+      )
+      .subscribe();
+    
+    // Cleanup subscription on unmount
+    return () => {
+      supabase.removeChannel(settingsSubscription);
+    };
+  }, [profile?.account_id]);
+
   const handleAddToCart = () => {
     if (!currentProduct) {
       toast({
@@ -155,6 +220,9 @@ export default function Sales() {
       });
       return;
     }
+
+    // Check if a custom price has been set, otherwise use the product's selling price
+    const currentPrice = productPrices[currentProduct] || product.selling_price;
 
     if (currentQuantity > product.quantity) {
       toast({
@@ -188,6 +256,10 @@ export default function Sales() {
     // Reset current selection
     setCurrentProduct('');
     setCurrentQuantity(1);
+    // Reset search term
+    setProductSearchTerm('');
+    // Note: We don't reset the custom price here because it's needed for the cart calculation
+    // The price will be used when the item is in the cart and will be cleared when the sale is recorded
   };
 
   const handleRemoveFromCart = (productId: string) => {
@@ -226,6 +298,16 @@ export default function Sales() {
     }
 
     try {
+      // Fetch the latest settings to ensure we're using current GST settings
+      const settingsRes = await supabase
+        .from('settings')
+        .select('gst_enabled, default_gst_rate')
+        .eq('account_id', profile?.account_id)
+        .single();
+      
+      if (settingsRes.error) throw settingsRes.error;
+      const currentSettings = settingsRes.data;
+
       // Create sales records for each item in the cart
       let salesToInsert = selectedProducts.map(item => {
         const product = products.find(p => p.id === item.id);
@@ -233,9 +315,15 @@ export default function Sales() {
           throw new Error(`Product with id ${item.id} not found`);
         }
         
-        const unitPrice = product.selling_price;
+        // Use custom price if set, otherwise use product's selling price
+        const unitPrice = productPrices[item.id] || product.selling_price;
         const subtotal = unitPrice * item.quantity;
-        const gstAmount = (subtotal * product.gst) / 100;
+        
+        // Check if GST is enabled before calculating
+        const gstAmount = currentSettings?.gst_enabled 
+          ? (subtotal * currentSettings.default_gst_rate) / 100 
+          : 0;
+          
         const totalPrice = subtotal + gstAmount;
         
         return {
@@ -243,11 +331,11 @@ export default function Sales() {
           product_id: item.id,
           user_id: profile?.id,
           quantity: item.quantity,
-          unit_price: unitPrice,
+          unit_price: unitPrice, // Use the custom price
           total_price: totalPrice,
           gst_amount: gstAmount,
-          // Add customer details
-          customer_name: customerName || null,
+          // Add customer details - use "Walk-in Customer" if name is empty
+          customer_name: customerName || "Walk-in Customer",
           customer_phone: customerPhone || null,
         };
       });
@@ -310,7 +398,7 @@ export default function Sales() {
   const totalPages = Math.ceil(totalSales / itemsPerPage);
   
   // Memoize calculated values
-  // Calculate totals for all selected products
+  // Calculate totals for all selected products (updated to use custom prices and global GST settings)
   const orderTotals = useMemo(() => {
     let subtotal = 0;
     let gstAmount = 0;
@@ -319,8 +407,15 @@ export default function Sales() {
     selectedProducts.forEach(item => {
       const product = products.find(p => p.id === item.id);
       if (product) {
-        const itemSubtotal = product.selling_price * item.quantity;
-        const itemGstAmount = (itemSubtotal * product.gst) / 100;
+        // Use custom price if set, otherwise use product's selling price
+        const unitPrice = productPrices[item.id] || product.selling_price;
+        const itemSubtotal = unitPrice * item.quantity;
+        
+        // Check if GST is enabled before calculating
+        const itemGstAmount = settings?.gst_enabled 
+          ? (itemSubtotal * settings.default_gst_rate) / 100 
+          : 0;
+          
         subtotal += itemSubtotal;
         gstAmount += itemGstAmount;
         grandTotal += itemSubtotal + itemGstAmount;
@@ -328,7 +423,7 @@ export default function Sales() {
     });
 
     return { subtotal, gstAmount, grandTotal };
-  }, [selectedProducts, products]);
+  }, [selectedProducts, products, productPrices, settings]);
 
   // Handle page change
   const handlePageChange = (page: number) => {
@@ -336,6 +431,49 @@ export default function Sales() {
       setCurrentPage(page);
       setLoading(true);
     }
+  };
+
+  // Function to show sale details in modal
+  const showSaleDetails = (sale: Sale) => {
+    setSelectedSale(sale);
+    setIsDetailModalOpen(true);
+  };
+
+  // Function to download sale details as text
+  const downloadSaleDetails = () => {
+    if (!selectedSale) return;
+    
+    const saleDate = new Date(selectedSale.created_at).toLocaleString();
+    const customerName = selectedSale.customer_name || "Walk-in Customer";
+    const customerPhone = selectedSale.customer_phone || "Not provided";
+    
+    const content = `
+SALE RECEIPT
+====================
+Date: ${saleDate}
+Product: ${selectedSale.products?.name}
+Quantity: ${selectedSale.quantity}
+Unit Price: ₹${selectedSale.unit_price.toFixed(2)}
+GST Amount: ₹${(selectedSale.gst_amount || 0).toFixed(2)}
+Total Price: ₹${selectedSale.total_price.toFixed(2)}
+
+CUSTOMER DETAILS
+====================
+Name: ${customerName}
+Phone: ${customerPhone}
+
+Thank you for your purchase!
+    `.trim();
+    
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `sale-receipt-${selectedSale.id}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -353,12 +491,30 @@ export default function Sales() {
           <DialogTrigger asChild>
             <Button 
               className="text-lg py-3 px-6 bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700"
+              onClick={async () => {
+                // Refresh settings when opening the dialog
+                if (profile?.account_id) {
+                  try {
+                    const settingsRes = await supabase
+                      .from('settings')
+                      .select('gst_enabled, default_gst_rate')
+                      .eq('account_id', profile.account_id)
+                      .single();
+                    
+                    if (!settingsRes.error) {
+                      setSettings(settingsRes.data);
+                    }
+                  } catch (error) {
+                    console.error('Error refreshing settings:', error);
+                  }
+                }
+              }}
             >
               <Plus className="h-5 w-5 mr-2" />
               Record Sale
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-lg md:max-w-xl max-h-[90vh] overflow-y-auto w-[95vw]">
+          <DialogContent className="max-w-2xl w-full mx-4 sm:mx-6 md:mx-8 max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="text-2xl">Record New Sale</DialogTitle>
               <DialogDescription className="text-lg">
@@ -377,6 +533,7 @@ export default function Sales() {
                     onClick={() => {
                       setCurrentProduct('');
                       setCurrentQuantity(1);
+                      setProductPrices({});
                     }}
                     className="text-sm"
                   >
@@ -396,22 +553,55 @@ export default function Sales() {
                       const product = products.find(p => p.id === item.id);
                       if (!product) return null;
                       
-                      const itemSubtotal = product.selling_price * item.quantity;
-                      const itemGstAmount = (itemSubtotal * product.gst) / 100;
+                      // Use custom price if set, otherwise use product's selling price
+                      const unitPrice = productPrices[item.id] || product.selling_price;
+                      const itemSubtotal = unitPrice * item.quantity;
+                      
+                      // Check if GST is enabled before calculating
+                      const itemGstAmount = settings?.gst_enabled 
+                        ? (itemSubtotal * settings.default_gst_rate) / 100 
+                        : 0;
+                        
                       const itemTotal = itemSubtotal + itemGstAmount;
                       
                       return (
                         <div key={item.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-md">
                           <div className="flex-1">
                             <div className="font-medium text-lg">{product.name}</div>
-                            <div className="text-sm text-muted-foreground">
-                              ₹{product.selling_price} × {item.quantity} = ₹{itemSubtotal.toFixed(2)}
+                            <div className="flex items-center gap-2">
+                              <div className="text-sm text-muted-foreground">
+                                ₹{unitPrice.toFixed(2)} × {item.quantity} = ₹{itemSubtotal.toFixed(2)}
+                                {productPrices[item.id] && productPrices[item.id] !== product.selling_price && (
+                                  <span className="text-blue-600 font-medium ml-2">(Adjusted)</span>
+                                )}
+                              </div>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0 text-blue-600"
+                                onClick={() => {
+                                  // Set the current product and price for editing
+                                  setCurrentProduct(item.id);
+                                  // Set the custom price to the current unit price
+                                  setProductPrices(prev => ({
+                                    ...prev,
+                                    [item.id]: unitPrice
+                                  }));
+                                }}
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                              </Button>
                             </div>
                           </div>
                           <div className="flex items-center gap-2 ml-4">
                             <div className="text-right">
                               <div className="font-medium">₹{itemTotal.toFixed(2)}</div>
-                              <div className="text-xs text-muted-foreground">incl. GST</div>
+                              <div className="text-xs text-muted-foreground">
+                                {settings?.gst_enabled ? "incl. GST" : "GST disabled"}
+                              </div>
                             </div>
                             <Button
                               type="button"
@@ -428,10 +618,11 @@ export default function Sales() {
                         </div>
                       );
                     })}
+
                   </div>
                 )}
               </div>
-              
+
               {/* Add Product to Cart Form */}
               <div className="space-y-4 p-4 bg-gray-50 rounded-lg">
                 <h3 className="text-lg font-medium">Add Product</h3>
@@ -443,7 +634,20 @@ export default function Sales() {
                         <SelectValue placeholder="Select product" />
                       </SelectTrigger>
                       <SelectContent>
-                        {products.map((product) => (
+                        <div className="p-2 sticky top-0 bg-white border-b z-10">
+                          <div className="relative">
+                            <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                            <Input
+                              placeholder="Search products..."
+                              value={productSearchTerm}
+                              onChange={(e) => setProductSearchTerm(e.target.value)}
+                              className="pl-8 py-1 text-sm"
+                              onClick={(e) => e.stopPropagation()}
+                              onKeyDown={(e) => e.stopPropagation()}
+                            />
+                          </div>
+                        </div>
+                        {filteredProducts.map((product) => (
                           <SelectItem key={product.id} value={product.id} className="py-2">
                             <div className="flex justify-between w-full">
                               <span>{product.name}</span>
@@ -467,13 +671,42 @@ export default function Sales() {
                     />
                   </div>
                 </div>
+                
+                {currentProduct && (
+                  <div className="space-y-2 mt-3">
+                    <Label htmlFor="customPrice" className="text-sm font-medium">
+                      Price (Default: ₹{products.find(p => p.id === currentProduct)?.selling_price})
+                    </Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="customPrice"
+                        type="number"
+                        step="0.01"
+                        value={productPrices[currentProduct] || products.find(p => p.id === currentProduct)?.selling_price || ''}
+                        onChange={(e) => {
+                          const value = parseFloat(e.target.value) || 0;
+                          setProductPrices(prev => ({
+                            ...prev,
+                            [currentProduct]: value
+                          }));
+                        }}
+                        className="py-2 px-3 flex-1"
+                        placeholder="Enter custom price"
+                      />
+                      {productPrices[currentProduct] && productPrices[currentProduct] !== products.find(p => p.id === currentProduct)?.selling_price && (
+                        <span className="text-sm text-blue-600 font-medium self-center">Adjusted</span>
+                      )}
+                    </div>
+                  </div>
+                )}
+                
                 <Button
                   type="button"
                   onClick={handleAddToCart}
-                  className="w-full bg-blue-600 hover:bg-blue-700"
+                  className="w-full bg-blue-600 hover:bg-blue-700 mt-3"
                 >
                   <Plus className="h-4 w-4 mr-2" />
-                  Add to Cart
+                  {selectedProducts.some(p => p.id === currentProduct) ? 'Update Item' : 'Add to Cart'}
                 </Button>
               </div>
 
@@ -607,6 +840,7 @@ export default function Sales() {
                       <TableHead className="text-lg font-bold text-gray-700 py-4">GST</TableHead>
                       <TableHead className="text-lg font-bold text-gray-700 py-4">Total</TableHead>
                       <TableHead className="text-lg font-bold text-gray-700 py-4">Date</TableHead>
+                      <TableHead className="text-lg font-bold text-gray-700 py-4">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -621,6 +855,16 @@ export default function Sales() {
                         <TableCell className="text-lg py-4">₹{sale.gst_amount?.toFixed(2) || '0.00'}</TableCell>
                         <TableCell className="text-lg py-4 font-bold text-green-600">₹{sale.total_price.toFixed(2)}</TableCell>
                         <TableCell className="text-lg py-4">{new Date(sale.created_at).toLocaleDateString()}</TableCell>
+                        <TableCell className="text-lg py-4">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => showSaleDetails(sale)}
+                            className="text-lg py-2 px-3"
+                          >
+                            <Eye className="h-5 w-5" />
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -710,6 +954,85 @@ export default function Sales() {
           )}
         </CardContent>
       </Card>
+
+      {/* Sale Detail Modal */}
+      <Dialog open={isDetailModalOpen} onOpenChange={setIsDetailModalOpen}>
+        <DialogContent className="max-w-md w-full mx-4 sm:mx-6 md:mx-8 max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-2xl">Sale Details</DialogTitle>
+            <DialogDescription className="text-lg">
+              Detailed information about this sale
+            </DialogDescription>
+          </DialogHeader>
+          {selectedSale && (
+            <div className="space-y-6">
+              <Card className="bg-gradient-to-br from-gray-50 to-white border-0 shadow-md">
+                <CardContent className="p-6 space-y-4">
+                  <h3 className="text-xl font-bold border-b pb-2">Transaction Details</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Product</p>
+                      <p className="font-medium">{selectedSale.products?.name}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Date</p>
+                      <p className="font-medium">{new Date(selectedSale.created_at).toLocaleString()}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Quantity</p>
+                      <p className="font-medium">{selectedSale.quantity}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Unit Price</p>
+                      <p className="font-medium">₹{selectedSale.unit_price.toFixed(2)}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">GST Amount</p>
+                      <p className="font-medium">₹{(selectedSale.gst_amount || 0).toFixed(2)}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Total Price</p>
+                      <p className="font-bold text-green-600">₹{selectedSale.total_price.toFixed(2)}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-gradient-to-br from-gray-50 to-white border-0 shadow-md">
+                <CardContent className="p-6 space-y-4">
+                  <h3 className="text-xl font-bold border-b pb-2">Customer Information</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Name</p>
+                      <p className="font-medium">{selectedSale.customer_name || "Walk-in Customer"}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Phone</p>
+                      <p className="font-medium">{selectedSale.customer_phone || "Not provided"}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <div className="flex gap-4">
+                <Button 
+                  onClick={downloadSaleDetails}
+                  className="flex-1 text-lg py-3 px-6 bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700"
+                >
+                  Download Receipt
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setIsDetailModalOpen(false)}
+                  className="flex-1 text-lg py-3 px-6"
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

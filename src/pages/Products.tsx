@@ -11,6 +11,13 @@ import { Plus, Search, Edit, Trash2, Package, AlertTriangle } from 'lucide-react
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface Product {
   id: string;
@@ -25,6 +32,29 @@ interface Product {
   low_stock_threshold: number;
   created_at: string;
 }
+
+// Preset product categories
+const PRESET_CATEGORIES = [
+  "Electronics",
+  "Clothing",
+  "Home & Kitchen",
+  "Books",
+  "Beauty & Personal Care",
+  "Toys & Games",
+  "Sports & Outdoors",
+  "Automotive",
+  "Health & Wellness",
+  "Food & Grocery",
+  "Office Supplies",
+  "Jewelry",
+  "Furniture",
+  "Pet Supplies",
+  "Garden & Outdoor",
+  "Baby Products",
+  "Tools & Hardware",
+  "Music & Movies",
+  "Other"
+];
 
 export default function Products() {
   const { isOwner, profile } = useAuth();
@@ -312,12 +342,28 @@ export default function Products() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label htmlFor="category" className="text-lg font-medium">Category</Label>
-                  <Input 
-                    id="category" 
+                  <Select name="category" value={editingProduct?.category || ""} onValueChange={(value) => {
+                    const categoryInput = document.querySelector('input[name="category"]') as HTMLInputElement;
+                    if (categoryInput) {
+                      categoryInput.value = value;
+                    }
+                  }}>
+                    <SelectTrigger className="text-lg py-3 px-4">
+                      <SelectValue placeholder="Select a category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PRESET_CATEGORIES.map((category) => (
+                        <SelectItem key={category} value={category}>
+                          {category}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {/* Hidden input to capture the selected value for form submission */}
+                  <input 
+                    type="hidden" 
                     name="category" 
-                    defaultValue={editingProduct?.category} 
-                    className="text-lg py-3 px-4" 
-                    placeholder="Enter category"
+                    value={editingProduct?.category || ""} 
                   />
                 </div>
                 <div className="space-y-2">

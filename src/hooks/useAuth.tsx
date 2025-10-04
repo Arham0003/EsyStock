@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
-type UserRole = 'owner' | 'worker';
+type UserRole = 'owner';
 
 interface Profile {
   id: string;
@@ -47,7 +47,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               .eq('id', session.user.id)
               .single();
             
-            setProfile(profileData);
+            // Transform the profile data to match our type (only owner role)
+            if (profileData) {
+              setProfile({
+                id: profileData.id,
+                account_id: profileData.account_id,
+                email: profileData.email,
+                role: 'owner', // Only owner role is supported now
+                created_at: profileData.created_at
+              });
+            }
             setLoading(false);
           }, 0);
         } else {
