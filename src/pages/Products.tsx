@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Search, Edit, Trash2, Package, AlertTriangle } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
@@ -66,6 +66,8 @@ export default function Products() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [productToDelete, setProductToDelete] = useState<Product | null>(null);
 
   const fetchProducts = async () => {
     try {
@@ -162,7 +164,15 @@ export default function Products() {
         title: "Error deleting product",
         description: error.message,
       });
+    } finally {
+      setDeleteDialogOpen(false);
+      setProductToDelete(null);
     }
+  };
+
+  const confirmDelete = (product: Product) => {
+    setProductToDelete(product);
+    setDeleteDialogOpen(true);
   };
 
   // Memoize filtered products to prevent unnecessary recalculations
@@ -463,6 +473,55 @@ export default function Products() {
             </form>
           </DialogContent>
         </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="text-xl">Confirm Product Deletion</DialogTitle>
+              <DialogDescription className="text-lg">
+                Are you sure you want to delete this product? This action cannot be undone and the item will be permanently removed from your inventory.
+              </DialogDescription>
+            </DialogHeader>
+            {productToDelete && (
+              <div className="py-4">
+                <div className="flex items-center gap-4 p-4 bg-red-50 rounded-lg">
+                  <div className="bg-red-100 p-3 rounded-full">
+                    <AlertTriangle className="h-6 w-6 text-red-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-lg">{productToDelete.name}</h3>
+                    <p className="text-muted-foreground">SKU: {productToDelete.sku || 'N/A'}</p>
+                  </div>
+                </div>
+                <p className="mt-4 text-red-600 font-medium">
+                  Warning: This action is irreversible. Once deleted, the product cannot be recovered.
+                </p>
+              </div>
+            )}
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setDeleteDialogOpen(false);
+                  setProductToDelete(null);
+                }}
+                className="text-lg py-3 px-6"
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => productToDelete && handleDelete(productToDelete.id)}
+                className="text-lg py-3 px-6"
+              >
+                <Trash2 className="h-5 w-5 mr-2" />
+                Delete Permanently
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
       </div>
 
       <Card className="shadow-xl border-0 bg-gradient-to-br from-white to-gray-50">
@@ -571,7 +630,7 @@ export default function Products() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleDelete(product.id)}
+                            onClick={() => confirmDelete(product)}
                             className="text-lg py-2 px-4 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
                           >
                             <Trash2 className="h-5 w-5 mr-1" />
