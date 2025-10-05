@@ -11,6 +11,9 @@ import NotFound from "./pages/NotFound";
 // Lazy load heavy components
 import { lazy, Suspense } from "react";
 
+// Debug component for development
+import DebugInfo from "@/components/DebugInfo";
+
 // Create a loading component for lazy loaded pages
 const LoadingComponent = () => (
   <div className="flex items-center justify-center min-h-screen">
@@ -83,6 +86,7 @@ const App = () => (
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
+        <DebugInfo />
       </TooltipProvider>
     </AuthProvider>
   </QueryClientProvider>
