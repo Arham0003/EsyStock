@@ -131,6 +131,10 @@ export type Database = {
           total_price: number
           unit_price: number
           user_id: string
+          // Added customer fields
+          customer_name: string | null
+          customer_phone: string | null
+          customer_email: string | null
         }
         Insert: {
           account_id: string
@@ -142,6 +146,10 @@ export type Database = {
           total_price: number
           unit_price: number
           user_id: string
+          // Added customer fields
+          customer_name?: string | null
+          customer_phone?: string | null
+          customer_email?: string | null
         }
         Update: {
           account_id?: string
@@ -153,6 +161,10 @@ export type Database = {
           total_price?: number
           unit_price?: number
           user_id?: string
+          // Added customer fields
+          customer_name?: string | null
+          customer_phone?: string | null
+          customer_email?: string | null
         }
         Relationships: [
           {

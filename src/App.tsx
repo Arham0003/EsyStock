@@ -11,9 +11,6 @@ import NotFound from "./pages/NotFound";
 // Lazy load heavy components
 import { lazy, Suspense } from "react";
 
-// Debug component for development
-import DebugInfo from "@/components/DebugInfo";
-
 // Create a loading component for lazy loaded pages
 const LoadingComponent = () => (
   <div className="flex items-center justify-center min-h-screen">
@@ -36,7 +33,7 @@ const App = () => (
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <BrowserRouter>
+        <BrowserRouter basename="/">
           <Routes>
             <Route path="/auth" element={<Auth />} />
             <Route path="/" element={<Layout />}>
@@ -83,10 +80,10 @@ const App = () => (
                 } 
               />
             </Route>
+            {/* Fallback route for any unmatched paths */}
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
-        <DebugInfo />
       </TooltipProvider>
     </AuthProvider>
   </QueryClientProvider>
