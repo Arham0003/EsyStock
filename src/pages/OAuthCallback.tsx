@@ -9,28 +9,44 @@ export default function OAuthCallback() {
 
   useEffect(() => {
     const handleOAuthCallback = async () => {
+      // Log the current URL for debugging
+      console.log('OAuth callback URL:', window.location.href);
+      
       // Get the URL parameters
       const params = new URLSearchParams(window.location.search);
       const code = params.get('code');
+      const error = params.get('error');
+      
+      // Log parameters for debugging
+      console.log('OAuth params - code:', code, 'error:', error);
+      
+      // Handle OAuth errors
+      if (error) {
+        console.error('OAuth error:', error);
+        navigate('/auth?error=oauth_failed');
+        return;
+      }
       
       if (code) {
         try {
           // Exchange the code for a session
-          const { error } = await supabase.auth.exchangeCodeForSession(code);
+          const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
           
-          if (error) {
-            console.error('Error exchanging code for session:', error);
-            navigate('/auth');
+          if (exchangeError) {
+            console.error('Error exchanging code for session:', exchangeError);
+            navigate('/auth?error=session_failed');
           } else {
             // Successfully signed in, redirect to home
+            console.log('OAuth successful, redirecting to home');
             navigate('/');
           }
-        } catch (error) {
-          console.error('Error during OAuth callback:', error);
-          navigate('/auth');
+        } catch (exchangeException) {
+          console.error('Exception during OAuth callback:', exchangeException);
+          navigate('/auth?error=exception');
         }
       } else {
         // No code in URL, redirect to auth page
+        console.log('No code in URL, redirecting to auth');
         navigate('/auth');
       }
     };
@@ -40,6 +56,7 @@ export default function OAuthCallback() {
       handleOAuthCallback();
     } else {
       // User is already authenticated, redirect to home
+      console.log('User already authenticated, redirecting to home');
       navigate('/');
     }
   }, [navigate, user]);
