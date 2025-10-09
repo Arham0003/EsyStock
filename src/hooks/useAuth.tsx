@@ -20,6 +20,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signUp: (email: string, password: string, companyName?: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
   isOwner: boolean;
 }
 
@@ -107,6 +108,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await supabase.auth.signOut();
   };
 
+  const signInWithGoogle = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+    
+    if (error) {
+      console.error('Error signing in with Google:', error);
+      throw error;
+    }
+  };
+
   const isOwner = profile?.role === 'owner';
 
   const value = {
@@ -117,6 +132,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signIn,
     signUp,
     signOut,
+    signInWithGoogle,
     isOwner,
   };
 
