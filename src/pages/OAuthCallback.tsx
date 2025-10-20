@@ -11,6 +11,7 @@ export default function OAuthCallback() {
     const handleOAuthCallback = async () => {
       // Log the current URL for debugging
       console.log('OAuth callback URL:', window.location.href);
+      console.log('Window location object:', window.location);
       
       // Get the URL parameters
       const params = new URLSearchParams(window.location.search);
@@ -31,6 +32,7 @@ export default function OAuthCallback() {
       if (code) {
         try {
           // Exchange the code for a session
+          console.log('Exchanging code for session:', code);
           const { error: exchangeError, data } = await supabase.auth.exchangeCodeForSession(code);
           
           console.log('Exchange result:', { data, error: exchangeError });
@@ -40,7 +42,7 @@ export default function OAuthCallback() {
             navigate('/auth?error=session_failed&message=' + encodeURIComponent(exchangeError.message));
           } else {
             // Successfully signed in, redirect to home
-            console.log('OAuth successful, redirecting to home');
+            console.log('OAuth successful, redirecting to home. User data:', data);
             navigate('/');
           }
         } catch (exchangeException: any) {
@@ -59,7 +61,7 @@ export default function OAuthCallback() {
       handleOAuthCallback();
     } else {
       // User is already authenticated, redirect to home
-      console.log('User already authenticated, redirecting to home');
+      console.log('User already authenticated, redirecting to home. User:', user);
       navigate('/');
     }
   }, [navigate, user]);

@@ -131,7 +131,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log('OAuth data:', data);
       // Manually redirect the user if Supabase doesn't do it automatically
       if (data?.url) {
+        console.log('Redirecting to OAuth URL:', data.url);
         window.location.href = data.url;
+      } else {
+        console.error('No OAuth URL returned from Supabase');
       }
     } catch (error) {
       console.error('Error in signInWithGoogle:', error);
