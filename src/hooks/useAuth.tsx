@@ -110,8 +110,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signInWithGoogle = async () => {
     try {
-      // Use the absolute URL for redirect after successful login
-      const redirectTo = 'https://inventro-lac.vercel.app/auth/callback';
+      // Use the current origin for redirect URL to ensure it works in all environments
+      const redirectTo = `${window.location.origin}/auth/callback`;
       
       console.log('Initiating Google OAuth with redirect to:', redirectTo);
       
@@ -119,7 +119,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         provider: 'google',
         options: {
           redirectTo,
-          skipBrowserRedirect: true
+          skipBrowserRedirect: false // Let Supabase handle the redirect
         },
       });
       
@@ -129,13 +129,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       
       console.log('OAuth data:', data);
-      // Manually redirect the user if Supabase doesn't do it automatically
-      if (data?.url) {
-        console.log('Redirecting to OAuth URL:', data.url);
-        window.location.href = data.url;
-      } else {
-        console.error('No OAuth URL returned from Supabase');
-      }
     } catch (error) {
       console.error('Error in signInWithGoogle:', error);
       throw error;
