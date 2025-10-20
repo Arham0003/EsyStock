@@ -113,9 +113,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Use the current origin for redirect URL to ensure it works in all environments
       const redirectTo = `${window.location.origin}/auth/callback`;
       
-      console.log('=== GOOGLE OAUTH DEBUG INFO ===');
+      console.log('=== GOOGLE OAUTH INITIATION DEBUG INFO ===');
       console.log('Current origin:', window.location.origin);
       console.log('Redirect URL:', redirectTo);
+      console.log('Full current URL:', window.location.href);
       console.log('User agent:', navigator.userAgent);
       console.log('==============================');
       
@@ -138,6 +139,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           window.location.href = data.url;
         }
         throw error;
+      }
+      
+      // If we get here and there's a URL, redirect manually
+      if (data?.url) {
+        console.log('Redirecting to OAuth provider:', data.url);
+        window.location.href = data.url;
       }
       
       console.log('OAuth initiated successfully');

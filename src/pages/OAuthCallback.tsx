@@ -12,6 +12,13 @@ export default function OAuthCallback() {
     console.log('Window location:', window.location);
     console.log('Window location href:', window.location.href);
     console.log('Window location search:', window.location.search);
+    console.log('Full URL object:', {
+      href: window.location.href,
+      origin: window.location.origin,
+      pathname: window.location.pathname,
+      search: window.location.search,
+      hash: window.location.hash
+    });
     console.log('User state:', user);
     console.log('==============================');
     
@@ -21,8 +28,16 @@ export default function OAuthCallback() {
       const code = params.get('code');
       const error = params.get('error');
       const errorDescription = params.get('error_description');
+      const state = params.get('state');
+      const scope = params.get('scope');
       
-      console.log('Parsed parameters:', { code, error, errorDescription });
+      console.log('All URL parameters:', {
+        code,
+        error,
+        errorDescription,
+        state,
+        scope
+      });
       
       // Handle OAuth errors
       if (error) {
@@ -54,7 +69,17 @@ export default function OAuthCallback() {
       } else {
         // No code in URL, redirect to auth page
         console.log('No code in URL, redirecting to auth');
-        navigate('/auth?error=no_code&message=No+authorization+code+received');
+        // Let's also check if there might be other parameters
+        const allParams = Array.from(params.entries());
+        console.log('All parameters in URL:', allParams);
+        
+        // Check if we're on the right path
+        if (window.location.pathname !== '/auth/callback') {
+          console.error('Not on the expected callback path');
+          navigate('/auth?error=wrong_path&message=Not+on+the+expected+callback+path');
+        } else {
+          navigate('/auth?error=no_code&message=No+authorization+code+received');
+        }
       }
     };
 
