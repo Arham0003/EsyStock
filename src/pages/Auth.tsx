@@ -19,20 +19,24 @@ export default function Auth() {
   
   // Check for OAuth errors in URL parameters
   const oauthError = searchParams.get('error');
+  const errorMessage = searchParams.get('message');
+  
   if (oauthError) {
-    setError('Google Sign-In failed. Please try again.');
+    setError(errorMessage || 'Google Sign-In failed. Please try again.');
   }
 
   const handleGoogleSignIn = async () => {
     try {
       setIsLoading(true);
+      setError('');
       await signInWithGoogle();
     } catch (error: any) {
-      setError('Failed to sign in with Google');
+      const errorMsg = error.message || 'Failed to sign in with Google';
+      setError(errorMsg);
       toast({
         variant: "destructive",
         title: "Google Sign-In Failed",
-        description: "Please try again or use email/password",
+        description: errorMsg,
       });
     } finally {
       setIsLoading(false);
