@@ -119,18 +119,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log('User agent:', navigator.userAgent);
       console.log('==============================');
       
+      // Try a different approach - use the Supabase auth URL directly
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo,
           skipBrowserRedirect: false
-        },
+        }
       });
       
       console.log('Supabase OAuth response:', { data, error });
       
       if (error) {
         console.error('OAuth error:', error);
+        // Try alternative approach - manual redirect
+        if (data?.url) {
+          console.log('Manual redirect to:', data.url);
+          window.location.href = data.url;
+        }
         throw error;
       }
       
