@@ -18,7 +18,7 @@ This is a comprehensive inventory management application built with React, TypeS
 
 ## Deployment
 
-This application is deployed on Vercel at https://inventory-pro-user.vercel.app/
+This application is deployed on Vercel at https://inventro-git-master-arham0003s-projects.vercel.app
 
 ## Technologies Used
 
