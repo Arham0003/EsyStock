@@ -71,7 +71,7 @@ export default function OAuthCallback() {
   return (
     <div className="min-h-screen flex items-center justify-center">
       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      <p className="ml-4">Processing authentication...</p>
+      <div className="ml-4">Processing authentication...</div>
     </div>
   );
 }
