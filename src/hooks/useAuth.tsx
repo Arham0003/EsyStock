@@ -113,22 +113,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Use the current origin for redirect URL to ensure it works in all environments
       const redirectTo = `${window.location.origin}/auth/callback`;
       
-      console.log('Initiating Google OAuth with redirect to:', redirectTo);
+      console.log('=== GOOGLE OAUTH DEBUG INFO ===');
+      console.log('Current origin:', window.location.origin);
+      console.log('Redirect URL:', redirectTo);
+      console.log('User agent:', navigator.userAgent);
+      console.log('==============================');
       
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo,
-          skipBrowserRedirect: false // Let Supabase handle the redirect
+          skipBrowserRedirect: false
         },
       });
+      
+      console.log('Supabase OAuth response:', { data, error });
       
       if (error) {
         console.error('OAuth error:', error);
         throw error;
       }
       
-      console.log('OAuth data:', data);
+      console.log('OAuth initiated successfully');
     } catch (error) {
       console.error('Error in signInWithGoogle:', error);
       throw error;

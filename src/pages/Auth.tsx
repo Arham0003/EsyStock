@@ -27,7 +27,11 @@ export default function Auth() {
 
   const handleGoogleSignIn = async () => {
     try {
-      console.log('Initiating Google Sign In...');
+      console.log('=== INITIATING GOOGLE SIGN IN ===');
+      console.log('Current location:', window.location.href);
+      console.log('Current origin:', window.location.origin);
+      console.log('================================');
+      
       setIsLoading(true);
       setError('');
       await signInWithGoogle();
