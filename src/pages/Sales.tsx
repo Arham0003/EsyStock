@@ -11,6 +11,7 @@ import { Plus, ShoppingCart, Package, Eye, Search } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface Product {
   id: string;
@@ -64,7 +65,10 @@ export default function Sales() {
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [productPrices, setProductPrices] = useState<Record<string, number>>({});
-
+  
+  // Mobile detection
+  const isMobile = useIsMobile();
+  
   // Filter products based on search term
   const filteredProducts = useMemo(() => {
     if (!productSearchTerm) return products;
@@ -629,34 +633,68 @@ Thank you for your purchase!
                 <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="currentProduct" className="text-sm font-medium">Product</Label>
-                    <Select value={currentProduct} onValueChange={setCurrentProduct}>
-                      <SelectTrigger className="py-2 px-3">
-                        <SelectValue placeholder="Select product" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <div className="p-2 sticky top-0 bg-white border-b z-10">
-                          <div className="relative">
-                            <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                            <Input
-                              placeholder="Search products..."
-                              value={productSearchTerm}
-                              onChange={(e) => setProductSearchTerm(e.target.value)}
-                              className="pl-8 py-1 text-sm"
-                              onClick={(e) => e.stopPropagation()}
-                              onKeyDown={(e) => e.stopPropagation()}
-                            />
-                          </div>
-                        </div>
-                        {filteredProducts.map((product) => (
-                          <SelectItem key={product.id} value={product.id} className="py-2">
-                            <div className="flex justify-between w-full">
-                              <span>{product.name}</span>
-                              <span className="text-muted-foreground text-sm">Stock: {product.quantity}</span>
+                    <div className="space-y-2">
+                      {/* Search input always visible */}
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                        <Input
+                          placeholder="Search products..."
+                          value={productSearchTerm}
+                          onChange={(e) => setProductSearchTerm(e.target.value)}
+                          className="pl-10 py-2 text-sm"
+                        />
+                      </div>
+                      
+                      {/* Product selection list - always visible when searching or no product selected */}
+                      {(productSearchTerm || !currentProduct) && (
+                        <div className="border rounded-md bg-white max-h-40 overflow-y-auto">
+                          {filteredProducts.length > 0 ? (
+                            filteredProducts.map((product) => (
+                              <div 
+                                key={product.id}
+                                className={`py-2 px-3 cursor-pointer flex justify-between items-center border-b last:border-b-0 ${
+                                  currentProduct === product.id ? 'bg-blue-50' : 'hover:bg-gray-50'
+                                }`}
+                                onClick={() => {
+                                  setCurrentProduct(product.id);
+                                  // Don't clear search term so user can see what they selected
+                                }}
+                              >
+                                <span>{product.name}</span>
+                                <span className="text-muted-foreground text-sm">Stock: {product.quantity}</span>
+                              </div>
+                            ))
+                          ) : (
+                            <div className="py-4 text-center text-muted-foreground text-sm">
+                              No products found
                             </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                          )}
+                        </div>
+                      )}
+                      
+                      {/* Show selected product when one is selected and no search is active */}
+                      {currentProduct && !productSearchTerm && (
+                        <div 
+                          className="py-2 px-3 border rounded-md bg-white cursor-pointer flex justify-between items-center"
+                          onClick={() => {
+                            // Clear selection to show all products again
+                            setCurrentProduct('');
+                          }}
+                        >
+                          {(() => {
+                            const selectedProduct = products.find(p => p.id === currentProduct);
+                            return selectedProduct ? (
+                              <>
+                                <span>{selectedProduct.name}</span>
+                                <span className="text-muted-foreground text-sm">Stock: {selectedProduct.quantity}</span>
+                              </>
+                            ) : (
+                              <span>Select product</span>
+                            );
+                          })()}
+                        </div>
+                      )}
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="currentQuantity" className="text-sm font-medium">Quantity</Label>

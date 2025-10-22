@@ -68,6 +68,8 @@ export default function Products() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
+  // State for category selection
+  const [selectedCategory, setSelectedCategory] = useState<string>("");
 
   const fetchProducts = async () => {
     try {
@@ -133,6 +135,7 @@ export default function Products() {
 
       setIsDialogOpen(false);
       setEditingProduct(null);
+      setSelectedCategory(""); // Reset category selection
       fetchProducts();
     } catch (error: any) {
       toast({
@@ -258,6 +261,15 @@ export default function Products() {
     }
   };
 
+  // Reset selected category when dialog opens/closes or when editing product changes
+  useEffect(() => {
+    if (isDialogOpen && editingProduct) {
+      setSelectedCategory(editingProduct.category || "");
+    } else if (!isDialogOpen) {
+      setSelectedCategory("");
+    }
+  }, [isDialogOpen, editingProduct]);
+
   return (
     <div className="space-y-8">
       <div className="space-y-8">
@@ -305,10 +317,19 @@ export default function Products() {
             </CardContent>
           </Card>
         )}
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isDialogOpen} onOpenChange={(open) => {
+          setIsDialogOpen(open);
+          if (!open) {
+            setSelectedCategory("");
+            setEditingProduct(null);
+          }
+        }}>
           <DialogTrigger asChild>
             <Button 
-              onClick={() => setEditingProduct(null)} 
+              onClick={() => {
+                setEditingProduct(null);
+                setSelectedCategory("");
+              }} 
               className="text-lg py-3 px-6 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
             >
               <Plus className="h-5 w-5 mr-2" />
@@ -352,12 +373,11 @@ export default function Products() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label htmlFor="category" className="text-lg font-medium">Category</Label>
-                  <Select name="category" value={editingProduct?.category || ""} onValueChange={(value) => {
-                    const categoryInput = document.querySelector('input[name="category"]') as HTMLInputElement;
-                    if (categoryInput) {
-                      categoryInput.value = value;
-                    }
-                  }}>
+                  <Select 
+                    name="category" 
+                    value={selectedCategory || editingProduct?.category || ""} 
+                    onValueChange={(value) => setSelectedCategory(value)}
+                  >
                     <SelectTrigger className="text-lg py-3 px-4">
                       <SelectValue placeholder="Select a category" />
                     </SelectTrigger>
@@ -373,7 +393,7 @@ export default function Products() {
                   <input 
                     type="hidden" 
                     name="category" 
-                    value={editingProduct?.category || ""} 
+                    value={selectedCategory || editingProduct?.category || ""} 
                   />
                 </div>
                 <div className="space-y-2">
@@ -464,7 +484,10 @@ export default function Products() {
                 <Button 
                   type="button" 
                   variant="outline" 
-                  onClick={() => setIsDialogOpen(false)} 
+                  onClick={() => {
+                    setIsDialogOpen(false);
+                    setSelectedCategory("");
+                  }} 
                   className="flex-1 text-lg py-3 px-6"
                 >
                   Cancel
@@ -566,6 +589,7 @@ export default function Products() {
                   setSearchTerm('');
                   setIsDialogOpen(true);
                   setEditingProduct(null);
+                  setSelectedCategory("");
                 }} 
                 className="text-lg py-3 px-8 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
               >
@@ -620,6 +644,7 @@ export default function Products() {
                             size="sm"
                             onClick={() => {
                               setEditingProduct(product);
+                              setSelectedCategory(product.category || "");
                               setIsDialogOpen(true);
                             }}
                             className="text-lg py-2 px-4"
