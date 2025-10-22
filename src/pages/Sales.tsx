@@ -65,6 +65,8 @@ export default function Sales() {
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [productPrices, setProductPrices] = useState<Record<string, number>>({});
+  // Custom GST rates for items in cart
+  const [customGstRates, setCustomGstRates] = useState<Record<string, number>>({});
   
   // Mobile detection
   const isMobile = useIsMobile();
@@ -323,9 +325,10 @@ export default function Sales() {
         const unitPrice = productPrices[item.id] || product.selling_price;
         const subtotal = unitPrice * item.quantity;
         
-        // Check if GST is enabled before calculating
+        // Use custom GST rate if set, otherwise use default from settings
+        const itemGstRate = customGstRates[item.id] !== undefined ? customGstRates[item.id] : currentSettings?.default_gst_rate || 0;
         const gstAmount = currentSettings?.gst_enabled 
-          ? (subtotal * currentSettings.default_gst_rate) / 100 
+          ? (subtotal * itemGstRate) / 100 
           : 0;
           
         const totalPrice = subtotal + gstAmount;
@@ -402,7 +405,7 @@ export default function Sales() {
   const totalPages = Math.ceil(totalSales / itemsPerPage);
   
   // Memoize calculated values
-  // Calculate totals for all selected products (updated to use custom prices and global GST settings)
+  // Calculate totals for all selected products (updated to use custom prices and custom GST rates)
   const orderTotals = useMemo(() => {
     let subtotal = 0;
     let gstAmount = 0;
@@ -415,9 +418,10 @@ export default function Sales() {
         const unitPrice = productPrices[item.id] || product.selling_price;
         const itemSubtotal = unitPrice * item.quantity;
         
-        // Check if GST is enabled before calculating
+        // Use custom GST rate if set, otherwise use default from settings
+        const itemGstRate = customGstRates[item.id] !== undefined ? customGstRates[item.id] : settings?.default_gst_rate || 0;
         const itemGstAmount = settings?.gst_enabled 
-          ? (itemSubtotal * settings.default_gst_rate) / 100 
+          ? (itemSubtotal * itemGstRate) / 100 
           : 0;
           
         subtotal += itemSubtotal;
@@ -427,7 +431,7 @@ export default function Sales() {
     });
 
     return { subtotal, gstAmount, grandTotal };
-  }, [selectedProducts, products, productPrices, settings]);
+  }, [selectedProducts, products, productPrices, customGstRates, settings]);
 
   // Handle page change
   const handlePageChange = (page: number) => {
@@ -561,9 +565,10 @@ Thank you for your purchase!
                       const unitPrice = productPrices[item.id] || product.selling_price;
                       const itemSubtotal = unitPrice * item.quantity;
                       
-                      // Check if GST is enabled before calculating
+                      // Use custom GST rate if set, otherwise use default from settings
+                      const itemGstRate = customGstRates[item.id] !== undefined ? customGstRates[item.id] : settings?.default_gst_rate || 0;
                       const itemGstAmount = settings?.gst_enabled 
-                        ? (itemSubtotal * settings.default_gst_rate) / 100 
+                        ? (itemSubtotal * itemGstRate) / 100 
                         : 0;
                         
                       const itemTotal = itemSubtotal + itemGstAmount;
@@ -599,12 +604,36 @@ Thank you for your purchase!
                                 </svg>
                               </Button>
                             </div>
+                            {/* GST Rate Editor */}
+                            {settings?.gst_enabled && (
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="text-xs text-muted-foreground">GST Rate:</span>
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  value={itemGstRate}
+                                  onChange={(e) => {
+                                    const newRate = parseFloat(e.target.value) || 0;
+                                    setCustomGstRates(prev => ({
+                                      ...prev,
+                                      [item.id]: newRate
+                                    }));
+                                  }}
+                                  className="w-20 h-6 text-xs py-0 px-2"
+                                />
+                                <span className="text-xs text-muted-foreground">%</span>
+                                {customGstRates[item.id] !== undefined && customGstRates[item.id] !== (settings?.default_gst_rate || 0) && (
+                                  <span className="text-xs text-blue-600">(Custom)</span>
+                                )}
+                              </div>
+                            )}
                           </div>
                           <div className="flex items-center gap-2 ml-4">
                             <div className="text-right">
                               <div className="font-medium">₹{itemTotal.toFixed(2)}</div>
                               <div className="text-xs text-muted-foreground">
-                                {settings?.gst_enabled ? "incl. GST" : "GST disabled"}
+                                {settings?.gst_enabled ? `GST: ₹${itemGstAmount.toFixed(2)}` : "GST disabled"}
                               </div>
                             </div>
                             <Button
