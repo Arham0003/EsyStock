@@ -1,4 +1,4 @@
-# Local Stock Inventory Management System
+# EsyStock Inventory Management System
 
 This is a comprehensive inventory management application built with React, TypeScript, and Supabase.
 
